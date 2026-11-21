@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Ролл ников</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root {
+    --bg: var(--tg-theme-bg-color, #ffffff);
+    --sec: var(--tg-theme-secondary-bg-color, #f1f1f4);
+    --text: var(--tg-theme-text-color, #000000);
+    --hint: var(--tg-theme-hint-color, #8e8e93);
+    --accent: var(--tg-theme-button-color, #2ea6ff);
+    --accent-text: var(--tg-theme-button-text-color, #ffffff);
+    --card: var(--tg-theme-section-bg-color, var(--bg));
+    --RARE: #3b82f6; --EPIC: #a855f7; --LEGENDARY: #f5b301;
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--sec); color: var(--text);
+    font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+  button { font: inherit; border: 0; cursor: pointer; }
+  .wrap { max-width: 520px; margin: 0 auto; padding: 12px 16px; }
+  .hidden { display: none !important; }
+
+  /* шапка */
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+  .chip { background: var(--card); border-radius: 999px; padding: 8px 14px; font-weight: 600; }
+  .btn { background: var(--accent); color: var(--accent-text); border-radius: 12px; padding: 10px 16px; font-weight: 600; }
+  .btn.ghost { background: var(--card); color: var(--accent); }
+  .btn.big { width: 100%; padding: 16px; font-size: 17px; border-radius: var(--radius); }
+  .btn:disabled { opacity: .5; }
+  .btn:active { transform: scale(.98); }
+
+  .section { background: var(--card); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px; }
+  .section h3 { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--hint); text-transform: uppercase; letter-spacing: .03em; }
+  .hint { color: var(--hint); font-size: 13px; }
+
+  /* гарант */
+  .pity { display: flex; gap: 4px; margin-top: 6px; }
+  .pity i { flex: 1; height: 6px; border-radius: 3px; background: var(--sec); }
+  .pity i.on { background: var(--EPIC); }
+
+  /* слот — игровая часть */
+  .slot { position: relative; border-radius: 22px; padding: 26px 16px 22px; margin-bottom: 12px; text-align: center;
+    background: radial-gradient(120% 90% at 50% 0%, #2a2340 0%, #12111a 60%); color: #fff; overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.06) inset; transition: box-shadow .4s; }
+  .slot .tier { font-size: 13px; font-weight: 800; letter-spacing: .25em; height: 18px; opacity: .9; }
+  .slot .name { font: 700 34px/1.2 ui-monospace, "SF Mono", Menlo, Consolas, monospace; margin: 14px 0 6px;
+    min-height: 42px; white-space: nowrap; letter-spacing: .02em; }
+  .slot .name span { display: inline-block; min-width: .62em; }
+  .slot .name span.spin { opacity: .55; filter: blur(.4px); }
+  .slot .sub { font-size: 13px; color: rgba(255,255,255,.55); min-height: 18px; }
+  .slot.RARE { box-shadow: 0 0 0 2px var(--RARE) inset, 0 0 30px -6px var(--RARE); }
+  .slot.EPIC { box-shadow: 0 0 0 2px var(--EPIC) inset, 0 0 40px -4px var(--EPIC); }
+  .slot.LEGENDARY { box-shadow: 0 0 0 2px var(--LEGENDARY) inset, 0 0 60px 0 var(--LEGENDARY);
+    background: radial-gradient(120% 90% at 50% 0%, #4a3a10 0%, #16130a 65%); }
+  .slot.RARE .tier { color: var(--RARE); } .slot.EPIC .tier { color: var(--EPIC); } .slot.LEGENDARY .tier { color: var(--LEGENDARY); }
+  .slot.LEGENDARY .name { color: #ffe08a; text-shadow: 0 0 18px rgba(245,179,1,.7); }
+  .slot.shake { animation: shake .45s; }
+  @keyframes shake { 20%{transform:translateX(-4px)} 40%{transform:translateX(4px)} 60%{transform:translateX(-3px)} 80%{transform:translateX(2px)} }
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0 0; }
+  .actions .btn { background: rgba(255,255,255,.1); color: #fff; }
+
+  /* лента */
+  .feed-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--sec); }
+  .feed-item:first-of-type { border-top: 0; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+  /* бонусы */
+  .streak { display: flex; justify-content: space-between; margin: 10px 0 4px; }
+  .streak b { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--sec);
+    font-size: 14px; color: var(--hint); }
+  .streak b.on { background: linear-gradient(135deg, #ff9a3c, #ff3d6e); color: #fff; }
+  .streak b.last { box-shadow: 0 0 0 2px var(--EPIC); }
+  .progress { height: 8px; border-radius: 4px; background: var(--sec); overflow: hidden; margin: 8px 0; }
+  .progress i { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+
+  /* коллекция */
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .nick { background: var(--card); border-radius: 14px; padding: 12px; border-left: 4px solid var(--hint); }
+  .nick .n { font: 600 16px ui-monospace, "SF Mono", Menlo, Consolas, monospace; overflow: hidden; text-overflow: ellipsis; }
+  .nick .t { font-size: 11px; font-weight: 800; letter-spacing: .12em; margin-top: 4px; }
+  .stats { display: flex; gap: 8px; margin-bottom: 12px; }
+  .stats div { flex: 1; background: var(--card); border-radius: 14px; padding: 10px; text-align: center; }
+  .stats b { display: block; font-size: 20px; }
+
+  /* нижнее меню */
+  nav { position: fixed; left: 0; right: 0; bottom: 0; display: flex; background: var(--card);
+    border-top: 1px solid var(--sec); padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); }
+  nav button { flex: 1; background: none; color: var(--hint); padding: 6px 0; font-size: 12px; border-radius: 10px; }
+  nav button .ic { display: block; font-size: 22px; line-height: 1.2; }
+  nav button.on { color: var(--accent); }
+
+  /* шторка покупки */
+  .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 10; }
+  .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 11; background: var(--bg); border-radius: 20px 20px 0 0;
+    padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); max-width: 520px; margin: 0 auto;
+    animation: up .25s ease-out; }
+  @keyframes up { from { transform: translateY(100%); } }
+  .pack { display: flex; justify-content: space-between; align-items: center; width: 100%; background: var(--sec);
+    color: var(--text); border-radius: 14px; padding: 14px 16px; margin-top: 8px; text-align: left; }
+  .off { background: #34c759; color: #fff; font-size: 12px; font-weight: 700; border-radius: 8px; padding: 2px 6px; margin-left: 6px; }
+
+  .toast { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); z-index: 20; background: rgba(0,0,0,.82);
+    color: #fff; padding: 10px 16px; border-radius: 12px; font-size: 14px; max-width: 90%; text-align: center; }
+  #fx { position: fixed; inset: 0; pointer-events: none; z-index: 30; }
+  .center { text-align: center; padding: 60px 20px; }
+</style>
+</head>
+<body>
+<canvas id="fx"></canvas>
+
+<div class="wrap" id="app">
+  <div class="top">
+    <div class="chip">🎲 <span id="bal">…</span></div>
+    <button class="btn" id="buyBtn">⭐ Купить роллы</button>
+  </div>
+
+  <!-- РОЛЛ -->
+  <section id="tab-roll">
+    <div class="slot" id="slot">
+      <div class="tier" id="slotTier">КРУТИ</div>
+      <div class="name" id="slotName">@??????</div>
+      <div class="sub" id="slotSub">каждый ник проверен прямо в Telegram</div>
+      <div class="actions hidden" id="slotActions">
+        <button class="btn" id="copyBtn">📋 Скопировать</button>
+        <button class="btn" id="shareBtn">📣 Поделиться</button>
+      </div>
+    </div>
+    <button class="btn big" id="rollBtn">🎲 Крутить</button>
+
+    <div class="section" style="margin-top:12px">
+      <div style="display:flex;justify-content:space-between"><span>Гарант 💜 EPIC</span><span class="hint" id="pityTxt"></span></div>
+      <div class="pity" id="pity"></div>
+      <div class="hint" style="margin-top:8px" id="chances"></div>
+    </div>
+
+    <div class="section">
+      <h3>Последние находки</h3>
+      <div id="feed"><div class="hint">пока пусто</div></div>
+    </div>
+  </section>
+
+  <!-- БОНУСЫ -->
+  <section id="tab-bonus" class="hidden">
+    <div class="section">
+      <h3>Ежедневный ролл</h3>
+      <div class="streak" id="streak"></div>
+      <div class="hint" id="streakTxt"></div>
+      <button class="btn big" id="dailyBtn" style="margin-top:12px">🎁 Забрать</button>
+    </div>
+    <div class="section">
+      <h3>Друзья</h3>
+      <div id="refTxt"></div>
+      <div class="progress"><i id="refBar" style="width:0"></i></div>
+      <div class="hint" id="refLeft"></div>
+      <button class="btn big" id="inviteBtn" style="margin-top:12px">🤝 Пригласить друга</button>
+      <button class="btn ghost big" id="copyRef" style="margin-top:8px">📋 Скопировать ссылку</button>
+    </div>
+  </section>
+
+  <!-- МОИ НИКИ -->
+  <section id="tab-mine" class="hidden">
+    <div class="stats">
+      <div><b id="cntAll">0</b><span class="hint">всего</span></div>
+      <div><b id="cntEpic" style="color:var(--EPIC)">0</b><span class="hint">epic</span></div>
+      <div><b id="cntLeg" style="color:var(--LEGENDARY)">0</b><span class="hint">legendary</span></div>
+    </div>
+    <div class="grid" id="mine"></div>
+    <div class="hint center hidden" id="mineEmpty">Здесь появятся все твои ники.<br>Крутани первый 🎲</div>
+  </section>
+</div>
+
+<div class="center hidden" id="outside">
+  <div style="font-size:48px">🎲</div>
+  <h2>Открой в Telegram</h2>
+  <p class="hint">Приложение работает внутри бота <a id="botLink" href="https://t.me/rollusernamebot">@rollusernamebot</a></p>
+</div>
+
+<nav id="nav">
+  <button data-tab="roll" class="on"><span class="ic">🎲</span>Ролл</button>
+  <button data-tab="bonus"><span class="ic">🎁</span>Бонусы</button>
+  <button data-tab="mine"><span class="ic">👤</span>Мои ники</button>
+</nav>
+
+<div id="sheet" class="hidden">
+  <div class="sheet-bg" id="sheetBg"></div>
+  <div class="sheet">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <b style="font-size:18px">Купить роллы</b>
+      <button class="btn ghost" id="sheetClose">✕</button>
+    </div>
+    <div class="hint" style="margin-top:4px">Оплата звёздами Telegram</div>
+    <div id="packs"></div>
+  </div>
+</div>
+
+<script>
+const API = "https://lpnivnsycegkzhaysoak.supabase.co/functions/v1/bot/api";
+const tg = window.Telegram && window.Telegram.WebApp;
+const $ = (id) => document.getElementById(id);
+const ICON = { RARE: "🔹", EPIC: "💜", LEGENDARY: "🌟" };
+const ABC = "abcdefghijklmnopqrstuvwxyz";
+let S = null, busy = false, last = null, mineLoaded = false;
+
+// ---------- утилиты
+async function api(action, extra = {}) {
+  const r = await fetch(API, { method: "POST", headers: { "content-type": "text/plain" },
+    body: JSON.stringify({ action, initData: tg.initData, ...extra }) });
+  const j = await r.json().catch(() => ({ error: "bad" }));
+  if (!r.ok || j.error) throw new Error(j.error || "HTTP " + r.status);
+  return j;
+}
+function toast(t, ms = 2200) {
+  const d = document.createElement("div"); d.className = "toast"; d.textContent = t;
+  document.body.appendChild(d); setTimeout(() => d.remove(), ms);
+}
+function haptic(kind) {
+  try {
+    if (kind === "tick") tg.HapticFeedback.selectionChanged();
+    else if (kind === "light") tg.HapticFeedback.impactOccurred("light");
+    else tg.HapticFeedback.notificationOccurred(kind);
+  } catch (_) {}
+}
+async function copy(text) {
+  try { await navigator.clipboard.writeText(text); }
+  catch (_) {
+    const t = document.createElement("textarea"); t.value = text; document.body.appendChild(t);
+    t.select(); try { document.execCommand("copy"); } catch (_) {} t.remove();
+  }
+  haptic("success"); toast("Скопировано: " + text);
+}
+function ago(iso) {
+  const m = Math.max(1, Math.round((Date.now() - new Date(iso)) / 60000));
+  if (m < 60) return m + " мин назад";
+  const h = Math.round(m / 60); if (h < 24) return h + " ч назад";
+  return Math.round(h / 24) + " д назад";
+}
+function fmtLeft(ms) {
+  const m = Math.max(1, Math.ceil(ms / 60000)), h = Math.floor(m / 60);
+  return h ? `${h} ч ${m % 60} мин` : `${m} мин`;
+}
+function plural(n, a, b, c) { const x = n % 10, y = n % 100;
+  return x === 1 && y !== 11 ? a : x >= 2 && x <= 4 && (y < 12 || y > 14) ? b : c; }
+function shareLink(url, text) {
+  tg.openTelegramLink("https://t.me/share/url?url=" + encodeURIComponent(url) + "&text=" + encodeURIComponent(text));
+}
+
+// ---------- отрисовка
+function renderTop() {
+  $("bal").textContent = S.rolls;
+  const left = Math.max(0, S.pity_every - S.since_epic);
+  $("pityTxt").textContent = S.since_epic >= S.pity_every - 1 ? "следующий ролл!" : `через ${left}`;
+  $("pity").innerHTML = Array.from({ length: S.pity_every }, (_, i) => `<i class="${i < S.since_epic ? "on" : ""}"></i>`).join("");
+  const c = S.chances, tot = (c.LEGENDARY || 0) + (c.EPIC || 0) + (c.RARE || 0) || 1;
+  $("chances").textContent = ["LEGENDARY", "EPIC", "RARE"].map((t) => `${ICON[t]} ${t} ${Math.round((c[t] || 0) * 100 / tot)}%`).join(" · ");
+  $("rollBtn").textContent = S.rolls > 0 ? "🎲 Крутить" : (S.daily.ready ? "🎁 Забрать бесплатный ролл" : "⭐ Купить роллы");
+}
+function renderFeed(feed) {
+  $("feed").innerHTML = feed && feed.length ? feed.map((f) =>
+    `<div class="feed-item"><span class="dot" style="background:var(--${f.tier})"></span>
+     <span class="grow">Кто-то выбил <b style="color:var(--${f.tier})">${f.tier}</b> <span class="mono">@${f.name}</span></span>
+     <span class="hint">${ago(f.at)}</span></div>`).join("") : `<div class="hint">пока пусто — будь первым</div>`;
+}
+function renderBonus() {
+  const d = S.daily, sd = d.streak_days, pos = d.streak > 0 ? ((d.streak - 1) % sd) + 1 : 0;
+  $("streak").innerHTML = Array.from({ length: sd }, (_, i) =>
+    `<b class="${i < pos ? "on" : ""} ${i === sd - 1 ? "last" : ""}">${i === sd - 1 ? "💜" : i + 1}</b>`).join("");
+  $("streakTxt").textContent = pos
+    ? `🔥 Серия ${pos}/${sd}. ${sd} дней подряд — ролл с гарантией EPIC.`
+    : `Заходи каждый день: ${sd} дней подряд — ролл с гарантией EPIC.`;
+  $("dailyBtn").disabled = !d.ready;
+  $("dailyBtn").textContent = d.ready ? "🎁 Забрать бесплатный ролл" : `⏳ Через ${fmtLeft(d.left_ms)}`;
+  const r = S.ref, done = r.per - r.left;
+  $("refTxt").innerHTML = `Каждые <b>${r.per}</b> ${plural(r.per, "друг", "друга", "друзей")} = <b>+${r.bonus} 🎲</b> тебе.<br>
+    <span class="hint">Другу — ${r.friend} бесплатных ролла. Приглашено: ${r.invited}, заработано: ${r.earned} 🎲</span>`;
+  $("refBar").style.width = (done / r.per * 100) + "%";
+  $("refLeft").textContent = `До следующего ролла: ${r.left} ${plural(r.left, "друг", "друга", "друзей")}`;
+}
+function renderAll() { renderTop(); renderBonus(); }
+
+// ---------- слот
+let spinTimer = null;
+function setSlot(text, cls) {
+  $("slotName").innerHTML = [...text].map((ch) => `<span${cls ? ` class="${cls}"` : ""}>${ch}</span>`).join("");
+}
+function startSpin() {
+  const slot = $("slot"); slot.className = "slot";
+  $("slotTier").textContent = "· · ·"; $("slotSub").textContent = "проверяю в Telegram…";
+  $("slotActions").classList.add("hidden");
+  spinTimer = setInterval(() => {
+    setSlot("@" + Array.from({ length: 6 }, () => ABC[Math.random() * 26 | 0]).join(""), "spin");
+    haptic("tick");
+  }, 70);
+}
+function stopSpin(row) {
+  return new Promise((done) => {
+    clearInterval(spinTimer);
+    const target = "@" + row.name; let fixed = 1;
+    const step = setInterval(() => {
+      fixed++;
+      const s = target.slice(0, fixed) + Array.from({ length: target.length - fixed }, () => ABC[Math.random() * 26 | 0]).join("");
+      $("slotName").innerHTML = [...s].map((ch, i) => `<span class="${i < fixed ? "" : "spin"}">${ch}</span>`).join("");
+      haptic("light");
+      if (fixed >= target.length) {
+        clearInterval(step);
+        const slot = $("slot"); slot.className = "slot " + row.tier;
+        $("slotTier").textContent = ICON[row.tier] + " " + row.tier;
+        $("slotSub").textContent = "✅ свободен · выдан только тебе";
+        $("slotActions").classList.remove("hidden");
+        if (row.tier === "LEGENDARY") { burst("#f5b301", 120); haptic("success"); slot.classList.add("shake"); }
+        else if (row.tier === "EPIC") { burst("#a855f7", 60); haptic("success"); }
+        else haptic("light");
+        done();
+      }
+    }, row.tier === "LEGENDARY" ? 170 : 110);
+  });
+}
+function resetSlot(msg) {
+  clearInterval(spinTimer); $("slot").className = "slot";
+  $("slotTier").textContent = "КРУТИ"; setSlot("@??????"); $("slotSub").textContent = msg || "";
+}
+
+// ---------- частицы
+function burst(color, n) {
+  const c = $("fx"), x = c.getContext("2d");
+  c.width = innerWidth * devicePixelRatio; c.height = innerHeight * devicePixelRatio; x.scale(devicePixelRatio, devicePixelRatio);
+  const r = $("slot").getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  const ps = Array.from({ length: n }, () => ({ x: cx, y: cy, vx: (Math.random() - .5) * 12, vy: (Math.random() - 1) * 11,
+    s: 3 + Math.random() * 4, a: 1, c: Math.random() < .3 ? "#fff" : color }));
+  (function frame() {
+    x.clearRect(0, 0, innerWidth, innerHeight);
+    let alive = 0;
+    for (const p of ps) {
+      p.vy += .35; p.x += p.vx; p.y += p.vy; p.a -= .012;
+      if (p.a <= 0) continue; alive++;
+      x.globalAlpha = p.a; x.fillStyle = p.c; x.fillRect(p.x, p.y, p.s, p.s);
+    }
+    if (alive) requestAnimationFrame(frame); else x.clearRect(0, 0, innerWidth, innerHeight);
+  })();
+}
+
+// ---------- действия
+async function roll() {
+  if (busy) return;
+  if (S.rolls <= 0) return S.daily.ready ? claimDaily() : openSheet();
+  busy = true; $("rollBtn").disabled = true; startSpin();
+  const t0 = Date.now();
+  try {
+    const r = await api("roll");
+    await new Promise((ok) => setTimeout(ok, Math.max(0, 900 - (Date.now() - t0)))); // дать покрутиться
+    S.rolls = r.rolls; S.since_epic = r.since_epic;
+    if (r.status === "ok") { last = r.row; await stopSpin(r.row); mineLoaded = false; }
+    else if (r.status === "empty") { resetSlot("⏳ ники разобраны — ищем новые, ролл не списан"); haptic("warning"); }
+    else { resetSlot("роллы закончились"); openSheet(); }
+  } catch (e) { resetSlot("ошибка, попробуй ещё раз"); haptic("error"); }
+  busy = false; $("rollBtn").disabled = false; renderTop();
+  api("feed").then((f) => renderFeed(f.feed)).catch(() => {});
+}
+async function claimDaily() {
+  try {
+    const r = await api("daily");
+    if (r.ok) {
+      S.rolls = r.rolls; haptic("success");
+      S.daily = { ...S.daily, ready: false, left_ms: new Date(r.next_at) - Date.now(), streak: r.streak };
+      toast(r.bonus ? `🏆 ${r.streak_days} дней подряд! Следующий ролл — EPIC+` : `🎁 +${r.added} ролл! Серия ${((r.streak - 1) % r.streak_days) + 1}/${r.streak_days}`, 3000);
+      if (r.bonus) burst("#a855f7", 80);
+    } else { toast("⏳ Бесплатный ролл ещё не готов"); }
+    await refresh();
+  } catch (e) { toast("Не получилось, попробуй ещё раз"); }
+}
+function openSheet() {
+  const base = S.packs[0] ? S.packs[0].stars / S.packs[0].rolls : 0;
+  $("packs").innerHTML = S.packs.map((p) => {
+    const off = base ? Math.round((1 - p.stars / p.rolls / base) * 100) : 0;
+    return `<button class="pack" data-pack="${p.id}"><span><b>${p.rolls} 🎲</b>${off > 0 ? `<span class="off">−${off}%</span>` : ""}</span><b>${p.stars} ⭐</b></button>`;
+  }).join("");
+  $("sheet").classList.remove("hidden");
+}
+function closeSheet() { $("sheet").classList.add("hidden"); }
+async function buy(id) {
+  try {
+    const { link } = await api("invoice", { pack: id });
+    tg.openInvoice(link, async (status) => {
+      if (status === "paid") {
+        haptic("success"); toast("⭐ Оплата прошла!"); closeSheet(); burst("#f5b301", 70);
+        for (let i = 0; i < 4; i++) { await new Promise((ok) => setTimeout(ok, 1200)); await refresh(); }
+      } else if (status === "failed") toast("Оплата не прошла");
+    });
+  } catch (e) { toast("Не удалось открыть оплату"); }
+}
+async function loadMine() {
+  const { items } = await api("mine");
+  $("cntAll").textContent = items.length;
+  $("cntEpic").textContent = items.filter((i) => i.tier === "EPIC").length;
+  $("cntLeg").textContent = items.filter((i) => i.tier === "LEGENDARY").length;
+  $("mineEmpty").classList.toggle("hidden", items.length > 0);
+  $("mine").innerHTML = items.map((i) =>
+    `<div class="nick" style="border-left-color:var(--${i.tier})" data-copy="@${i.name}">
+       <div class="n">@${i.name}</div><div class="t" style="color:var(--${i.tier})">${i.tier}</div>
+       <div class="hint" style="font-size:11px">${ago(i.issued_at)}</div></div>`).join("");
+  mineLoaded = true;
+}
+async function refresh() {
+  const st = await api("state");
+  S = st; renderAll(); renderFeed(st.feed);
+  return st;
+}
+function tab(name) {
+  for (const t of ["roll", "bonus", "mine"]) $("tab-" + t).classList.toggle("hidden", t !== name);
+  document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("on", b.dataset.tab === name));
+  haptic("tick");
+  if (name === "mine" && !mineLoaded) loadMine().catch(() => toast("Не удалось загрузить"));
+  if (name === "bonus") renderBonus();
+}
+
+// ---------- старт
+function bind() {
+  $("rollBtn").onclick = roll;
+  $("buyBtn").onclick = openSheet;
+  $("sheetBg").onclick = closeSheet; $("sheetClose").onclick = closeSheet;
+  $("packs").onclick = (e) => { const b = e.target.closest("[data-pack]"); if (b) buy(Number(b.dataset.pack)); };
+  $("copyBtn").onclick = () => last && copy("@" + last.name);
+  $("shareBtn").onclick = () => last && shareLink(S.ref.link, `Урвал @${last.name} (${last.tier}) — красивые свободные ники Telegram, крути и ты 🎲`);
+  $("dailyBtn").onclick = claimDaily;
+  $("inviteBtn").onclick = () => shareLink(S.ref.link, "Красивые свободные ники Telegram — держи бесплатные роллы 🎲");
+  $("copyRef").onclick = () => copy(S.ref.link);
+  $("mine").onclick = (e) => { const c = e.target.closest("[data-copy]"); if (c) copy(c.dataset.copy); };
+  document.querySelectorAll("nav button").forEach((b) => (b.onclick = () => tab(b.dataset.tab)));
+}
+
+(async function init() {
+  if (!tg || !tg.initData) {
+    $("app").classList.add("hidden"); $("nav").classList.add("hidden"); $("outside").classList.remove("hidden");
+    return;
+  }
+  tg.ready(); tg.expand();
+  try { tg.setHeaderColor("secondary_bg_color"); tg.setBackgroundColor("secondary_bg_color"); } catch (_) {}
+  bind(); setSlot("@??????");
+  try {
+    const st = await refresh();
+    if (st.is_new && st.rolls > 0) toast(`🎁 Тебе ${st.rolls} ${plural(st.rolls, "бесплатный ролл", "бесплатных ролла", "бесплатных роллов")}!`, 3000);
+  } catch (e) {
+    $("slotSub").textContent = e.message === "auth" ? "открой приложение заново из бота" : "нет связи, попробуй позже";
+  }
+  setInterval(() => { if (S && !S.daily.ready) { S.daily.left_ms -= 30000; if (S.daily.left_ms <= 0) refresh(); else renderBonus(); } }, 30000);
+})();
+</script>
+</body>
+</html>
